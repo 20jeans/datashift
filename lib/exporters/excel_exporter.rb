@@ -23,7 +23,7 @@ module DataShift
 
     # Create an Excel file from list of ActiveRecord objects
     def export(records, options = {})
-        
+      binding.pry
       raise ArgumentError.new('Please supply array of records to export') unless records.is_a? Array
 
       excel = Excel.new
