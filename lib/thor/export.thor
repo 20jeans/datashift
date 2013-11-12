@@ -32,7 +32,6 @@ module Datashift
     method_option :exclude, :aliases => '-e',  :type => :array, :desc => "Use with -a : Exclude association types. Any from #{DataShift::MethodDetail::supported_types_enum.to_a.inspect}"
     
     def excel()
-      binding.pry
       # TODO - We're assuming run from a rails app/top level dir...
       # ...can we make this more robust ? e.g what about when using active record but not in Rails app, 
       require File.expand_path('config/environment.rb')
