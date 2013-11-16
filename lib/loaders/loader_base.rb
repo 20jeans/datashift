@@ -364,6 +364,7 @@ module DataShift
       begin
         return @load_object.save
       rescue => e
+        binding.pry
         failure
         puts "Error saving #{@load_object.class} : #{e.inspect}"
         logger.error e.backtrace
