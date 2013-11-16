@@ -86,7 +86,8 @@ module DataShift
               
               if(verbose)
                 puts "Failed to process row [#{i}] (#{@current_row})" 
-                puts e.inspect 
+                puts e.inspect
+                puts e.backtrace.join("\n")
               end
               
               # don't forget to reset the load object 

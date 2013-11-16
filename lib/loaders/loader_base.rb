@@ -367,7 +367,8 @@ module DataShift
         binding.pry
         failure
         puts "Error saving #{@load_object.class} : #{e.inspect}"
-        logger.error e.backtrace
+        puts e.backtrace.join("\n")
+        logger.error e.backtrace.join("\n")
         raise "Error in save whilst processing column #{@current_method_detail.name}" if(@config[:strict])
       end
     end 
