@@ -16,7 +16,6 @@ module DataShift
   require 'datashift/querying'
 
   class LoaderBase
-
     include DataShift::Logging
     include DataShift::Querying
       
@@ -31,7 +30,7 @@ module DataShift
     
     attr_accessor :config, :verbose
 
-    def options() return @config; end
+    def options; @config; end
     
 
     # Setup loading
@@ -49,16 +48,16 @@ module DataShift
     def initialize(object_class, find_operators = true, object = nil, options = {})
       @load_object_class = object_class
       
-      @populator = if(options[:populator].is_a?(String))
+      @populator = if options[:populator].is_a?(String)
         ::Object.const_get(options[:populator]).new
-      elsif(options[:populator].is_a?(Class))
+      elsif options[:populator].is_a?(Class)
         options[:populator].new
       else
         DataShift::Populator.new
       end
           
       # Gather names of all possible 'setter' methods on AR class (instance variables and associations)
-      if((find_operators && !MethodDictionary::for?(object_class)) || options[:reload])
+      if (find_operators && !MethodDictionary::for?(object_class)) || options[:reload]
         #puts "DEBUG Building Method Dictionary for class #{object_class}"
         
         meth_dict_opts = options.extract!(:reload, :instance_methods)
@@ -100,9 +99,8 @@ module DataShift
     #                     This provides the opportunity for loaders to provide specific methods to handle these fields
     #                     when no direct operator is available on the model or it's associations
     #
-    def perform_load( file_name, options = {} )
-
-      raise DataShift::BadFile, "Cannot load #{file_name} file not found." unless(File.exists?(file_name))
+    def perform_load(file_name, options = {})
+      raise DataShift::BadFile, "Cannot load #{file_name} file not found." unless File.exists?(file_name)
         
       logger.info("Perform Load Options:\n#{options.inspect}")
       
@@ -110,9 +108,9 @@ module DataShift
       
       # TODO - make more modular - these methods doing too much, for example move the object creation/reset
       # out of these perform... methods to make it easier to over ride that behaviour
-      if(ext.casecmp('.xls') == 0)
+      if ext.casecmp('.xls') == 0
         perform_excel_load(file_name, options)
-      elsif(ext.casecmp('.csv') == 0)
+      elsif ext.casecmp('.csv') == 0
         perform_csv_load(file_name, options)
       else
         raise DataShift::UnsupportedFileType, "#{ext} files not supported - Try .csv or OpenOffice/Excel .xls"
@@ -151,22 +149,22 @@ module DataShift
       
       mandatory = options[:mandatory] || []
                
-      strict = (options[:strict] == true)
+      strict = options[:strict]
       
       begin 
-        @method_mapper.map_inbound_headers_to_methods( load_object_class, @headers, options )
+        @method_mapper.map_inbound_headers_to_methods(load_object_class, @headers, options)
       rescue => e
         puts e.inspect, e.backtrace
-        logger.error("Failed to map header row to set of database operators : #{e.inspect}")
+        logger.error "Failed to map header row to set of database operators : #{e.inspect}"
         raise MappingDefinitionError, "Failed to map header row to set of database operators"
       end
       
-      unless(@method_mapper.missing_methods.empty?)
+      unless @method_mapper.missing_methods.empty?
         puts "WARNING: These headings couldn't be mapped to class #{load_object_class} :\n#{@method_mapper.missing_methods.inspect}"
         raise MappingDefinitionError, "Missing mappings for columns : #{@method_mapper.missing_methods.join(",")}" if(strict)
       end
 
-      unless(mandatory.empty? || @method_mapper.contains_mandatory?(mandatory) )
+      unless mandatory.empty? || @method_mapper.contains_mandatory?(mandatory)
         @method_mapper.missing_mandatory(mandatory).each { |er| puts "ERROR: Mandatory column missing - expected column '#{er}'" }
         raise MissingMandatoryError, "Mandatory columns missing  - please fix and retry."
       end
@@ -177,7 +175,7 @@ module DataShift
 
     # Process any defaults user has specified, for those columns that are not included in
     # the incoming import format
-    def process_missing_columns_with_defaults()
+    def process_missing_columns_with_defaults
       inbound_ops = @method_mapper.operator_names
       @populator.default_values.each do |dn, dv|     
         logger.debug "Processing default value #{dn} : #{dv}"
@@ -191,13 +189,13 @@ module DataShift
     # If suitable association found, process row data and then assign to current load_object
     def find_and_process(column_name, data)
       
-      puts "WARNING: MethodDictionary empty for class #{load_object_class}" unless(MethodDictionary.for?(load_object_class))
+      puts "WARNING: MethodDictionary empty for class #{load_object_class}" unless MethodDictionary.for?(load_object_class)
         
-      method_detail = MethodDictionary.find_method_detail( load_object_class, column_name )
+      method_detail = MethodDictionary.find_method_detail(load_object_class, column_name)
 
-      if(method_detail)
+      if method_detail
         prepare_data(method_detail, data)
-        process()
+        process
       else
         puts "No matching method found for column #{column_name}"
         @load_object.errors.add(:base, "No matching method found for column #{column_name}")
@@ -216,16 +214,15 @@ module DataShift
     #     option: value
     #
     def configure_from(yaml_file)
-
-      data = YAML::load( File.open(yaml_file) )
+      data = YAML.load_file(yaml_file)
       
       logger.info("Read Datashift loading config: #{data.inspect}")
         
-      if(data['LoaderBase'])
+      if data['LoaderBase']
         @config.merge!(data['LoaderBase'])
       end
        
-      if(data[self.class.name])    
+      if data[self.class.name]
         @config.merge!(data[self.class.name])
       end
       
@@ -251,15 +248,14 @@ module DataShift
     # We leave it to caller to manage any other aspects or problems in 'rest'
     #
     def get_find_operator_and_rest(inbound_data)
-        
       operator, rest = inbound_data.split(Delimiters::name_value_delim) 
      
       #puts "DEBUG inbound_data: #{inbound_data} => #{operator} , #{rest}"
        
       # Find by operator embedded in row takes precedence over operator in column heading
-      if(@populator.current_method_detail.find_by_operator)
+      if @populator.current_method_detail.find_by_operator
         # row contains 0.99 so rest is effectively operator, and operator is in method details
-        if(rest.nil?)
+        if rest.nil?
           rest = operator
           operator = @populator.current_method_detail.find_by_operator
         end
@@ -275,16 +271,14 @@ module DataShift
     # Method detail represents a column from a file and it's correlated AR associations.
     # Value string which may contain multiple values for a collection association.
     #
-    def process()  
-      
+    def process
       current_method_detail = @populator.current_method_detail
       current_value         = @populator.current_value
         
       logger.info("Current value to assign : #{current_value}")
       
-      if(current_method_detail.operator_for(:has_many))
-
-        if(current_method_detail.operator_class && current_value)
+      if current_method_detail.operator_for(:has_many)
+        if current_method_detail.operator_class && current_value
 
           # there are times when we need to save early, for example before assigning to
           # has_and_belongs_to associations which require the load_object has an id for the join table
@@ -293,36 +287,36 @@ module DataShift
 
           # A single column can contain multiple associations delimited by special char
           # Size:large|Colour:red,green,blue => ['Size:large', 'Colour:red,green,blue']
-          columns = current_value.to_s.split( Delimiters::multi_assoc_delim )
+          columns = current_value.to_s.split(Delimiters::multi_assoc_delim)
 
           # Size:large|Colour:red,green,blue   => generates find_by_size( 'large' ) and find_all_by_colour( ['red','green','blue'] )
 
           columns.each do |col_str|
             
-            find_operator, col_values = get_find_operator_and_rest( col_str )
+            find_operator, col_values = get_find_operator_and_rest(col_str)
                       
-            raise "Cannot perform DB find by #{find_operator}. Expected format key:value" unless(find_operator && col_values)
+            raise "Cannot perform DB find by #{find_operator}. Expected format key:value" unless find_operator && col_values
              
             find_by_values = col_values.split(Delimiters::multi_value_delim)
             
             find_by_values << current_method_detail.find_by_value if(current_method_detail.find_by_value)
                      
-            if(find_by_values.size > 1)
+            if find_by_values.size > 1
 
               current_value = current_method_detail.operator_class.send("find_all_by_#{find_operator}", find_by_values )
 
-              unless(find_by_values.size == current_value.size)
-                found = current_value.collect {|f| f.send(find_operator) }
-                @load_object.errors.add( current_method_detail.operator, "Association with key(s) #{(find_by_values - found).inspect} NOT found")
+              unless find_by_values.size == current_value.size
+                found = current_value.map{|f| f.send(find_operator) }
+                @load_object.errors.add(current_method_detail.operator, "Association with key(s) #{(find_by_values - found).inspect} NOT found")
                 puts "WARNING: Association #{current_method_detail.operator} with key(s) #{(find_by_values - found).inspect} NOT found - Not added."
-                next if(@current_value.empty?)
+                next if @current_value.empty?
               end
 
             else
 
-              current_value = current_method_detail.operator_class.send("find_by_#{find_operator}", find_by_values )
+              current_value = current_method_detail.operator_class.send("find_by_#{find_operator}", find_by_values)
 
-              unless(current_value)
+              unless current_value
                 @load_object.errors.add( current_method_detail.operator, "Association with key #{find_by_values} NOT found")
                 puts "WARNING: Association with key #{find_by_values} NOT found - Not added."
                 next
@@ -347,24 +341,23 @@ module DataShift
     # For use case where object saved early but subsequent required columns fail to process
     # so the load object is invalid
     
-    def failure( object = @load_object, rollback = false)
+    def failure(object = @load_object, rollback = false)
       if(object)
         @reporter.add_failed_object(object)
       
-        object.destroy if(rollback && object.respond_to?('destroy') && !object.new_record?)
+        object.destroy if rollback && object.respond_to?('destroy') && !object.new_record?
         
         new_load_object # don't forget to reset the load object 
       end
     end
 
     def save
-      return unless( @load_object )
+      return unless @load_object
       
-      puts "DEBUG: SAVING #{@load_object.class} : #{@load_object.inspect}" if(verbose)
+      puts "DEBUG: SAVING #{@load_object.class} : #{@load_object.inspect}" if verbose
       begin
         return @load_object.save
       rescue => e
-        binding.pry
         failure
         puts "Error saving #{@load_object.class} : #{e.inspect}"
         puts e.backtrace.join("\n")
@@ -383,7 +376,6 @@ module DataShift
     
     def new_load_object
       @load_object = @load_object_class.new
-      @load_object
     end
 
     def abort_on_failure?
@@ -398,20 +390,19 @@ module DataShift
       reporter.failed_objects.size
     end
 
-
     # Check whether headers contains supplied list
-    def headers_contain_mandatory?( mandatory_list )
-      [ [*mandatory_list] - @headers].flatten.empty?
+    def headers_contain_mandatory?(mandatory_list)
+      [[*mandatory_list] - @headers].flatten.empty?
     end
 
 
     # Check whether headers contains supplied list
-    def missing_mandatory_headers( mandatory_list )
-      [ [*mandatory_list] - @headers].flatten
+    def missing_mandatory_headers(mandatory_list)
+      [[*mandatory_list] - @headers].flatten
     end
     
-    def find_or_new( klass, condition_hash = {} )
-      @records[klass] = klass.find(:all, :conditions => condition_hash)
+    def find_or_new(klass, condition_hash = {})
+      @records[klass] = klass.where(condition_hash).all
       if @records[klass].any?
         return @records[klass].first
       else
@@ -425,7 +416,7 @@ module DataShift
     # Supported Syntax :
     #  assoc_find_name:value | assoc2_find_name:value | etc
     def get_each_assoc
-      @populator.current_value.to_s.split( Delimiters::multi_assoc_delim )
+      @populator.current_value.to_s.split(Delimiters::multi_assoc_delim)
     end
       
     private
@@ -438,10 +429,10 @@ module DataShift
     def save_if_new
       return unless(load_object.new_record?)
       
-      if(load_object.valid?)  
+      if load_object.valid?
         save
       else
-        puts "Cannot Save - Invalid #{load_object.class} - #{load_object.errors.full_messages}" if(verbose)
+        puts "Cannot Save - Invalid #{load_object.class} - #{load_object.errors.full_messages}" if verbose
       end
     end
   
